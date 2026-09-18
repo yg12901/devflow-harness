@@ -1,0 +1,347 @@
+# ============================================================
+# devflow 流水线定义
+# ============================================================
+# 这个文件是整条流水线的唯一真相：阶段顺序、每阶段谁负责、产出什么、
+# 门禁校验什么。引擎只实现校验原语，具体校验哪些内容全在这里声明。
+#
+# 加一道门禁 = 在 gates 下加一条 YAML，不需要改任何 Python。
+# 换一个技术栈 = 换 config/profiles/ 下的 profile，这个文件基本不用动。
+#
+# 可用校验原语（engine/gates.py PRIMITIVES）：
+#   file_exists          文件存在
+#   file_nonempty        文件非空（min_chars）
+#   sections_present     含指定章节（all_of / any_of + min_any）
+#   regex_present        匹配到指定模式（min_count 去重后计数）
+#   regex_absent         不得出现指定模式
+#   yaml_valid           YAML 可解析且顶层是映射
+#   yaml_path_nonempty   YAML 指定路径非空
+#   yaml_path_empty      YAML 指定路径必须为空（反向约束）
+#   yaml_items_field     列表中每项的字段取值校验
+#   command_ok           真正重跑一条 profile 命令，用退出码判定
+#
+# severity: block（默认，不通过即打回）| warn（记录但放行）
+# ============================================================
+
+version: 1
+
+defaults:
+  profile: default
+  max_turns: 25
+
+# ============================================================
+# 需求类型分级：不同类型跳过不同阶段，避免小改动走完整流程
+# ============================================================
+run_types:
+  feature:
+    description: 新功能，完整七阶段
+    skip: []
+  bugfix:
+    description: 缺陷修复，复用已有需求定义
+    skip: ["S1"]
+  hotfix:
+    description: 线上紧急修复，只保留编码-评审-测试-发布
+    skip: ["S1", "S2", "S7"]
+  refactor:
+    description: 重构，无新需求但需完整方案与测试
+    skip: ["S1"]
+
+# ============================================================
+# 自学习参数
+# ============================================================
+learning:
+  distill_min_hits: 2        # 同一签名命中 N 次才生成候选经验
+  promote_to_p1_runs: 2      # 跨 N 个不同 run 复现 -> 升 P1（阶段必读）
+  promote_to_p0_runs: 3      # 跨 N 个不同 run 复现 且 ...
+  promote_to_p0_stages: 2    # ... 跨 N 个不同阶段 -> 升 P0（全局铁律）
+  demote_after_failures: 2   # 注入后同一门禁仍失败 N 次 -> 降级并标记待改写
+  retire_after_failures: 4   # 注入后同一门禁仍失败 N 次 -> 淘汰
+  proven_streak: 3           # 连续 N 次注入后门禁未失败 -> 固化为已验证
+  max_inject: 8              # 单阶段最多注入条数，控制 prompt 体积
+
+# ============================================================
+# 七阶段流水线
+# ============================================================
+stages:
+
+  # ---------- S1 需求分析 ----------
+  - id: S1
+    name: 需求分析
+    role: requirement-analyst
+    description: 把自然语言需求拆成带编号的可验证需求点，建立初版知识库
+    max_turns: 25
+    tags: [requirement, analysis]
+    repo_map_sections: ["顶层模块", "入口点"]
+    artifacts:
+      - 01-requirement.md
+      - knowledge-base.md
+    gates:
+      - check: file_exists
+        files: ["01-requirement.md", "knowledge-base.md"]
+      - check: file_nonempty
+        files: ["01-requirement.md", "knowledge-base.md"]
+        min_chars: 200
+      - check: sections_present
+        file: 01-requirement.md
+        all_of: ["需求拆解", "影响范围", "风险", "验收标准"]
+        message: 四个章节缺一不可，缺「影响范围」下游架构师就得从零摸索
+      - check: regex_present
+        file: 01-requirement.md
+        pattern: "R-\\d+"
+        label: 需求编号
+        min_count: 1
+        message: 每个需求点必须编号 R-01/R-02，它是后续覆盖率矩阵的追溯锚点
+      - check: regex_present
+        file: 01-requirement.md
+        pattern: "(待澄清|疑点|假设)"
+        label: 疑点标注
+        min_count: 1
+        message: 需求分析必须显式标注疑点或假设，零疑点通常意味着没读进去
+      - check: regex_absent
+        file: 01-requirement.md
+        pattern: "(也许|大概齐|应该差不多|我猜)"
+        label: 模糊措辞
+        message: 需求文档不允许模糊措辞，不确定就写进「待澄清」
+      - check: sections_present
+        file: knowledge-base.md
+        all_of: ["模块地图", "关键文件索引", "知识更新日志"]
+        message: 知识库是贯穿全流程的载体，三个基础章节必须建起来
+
+  # ---------- S2 技术方案与任务拆分 ----------
+  # plan_check 在这里开启：早期原型里的 plan-reviewer 角色被这 9 项
+  # 脚本化结构检查完全替代，是 9 个角色收敛到 7 个的依据。
+  - id: S2
+    name: 技术方案与任务拆分
+    role: architect
+    description: 代码探索取证、方案比选、影响分析，拆成可独立验证的小任务
+    max_turns: 40
+    tags: [design, architecture, decomposition]
+    repo_map_sections: ["顶层模块", "热点文件", "语言分布"]
+    plan_check:
+      tasks_file: tasks.yaml
+      dependency_map_file: dependency-map.yaml
+      max_files_per_task: 5
+    artifacts:
+      - 02-design.md
+      - dependency-map.yaml
+      - tasks.yaml
+      - impact-report.md
+    gates:
+      - check: file_exists
+        files: ["02-design.md", "dependency-map.yaml", "tasks.yaml", "impact-report.md"]
+      - check: file_nonempty
+        files: ["02-design.md", "impact-report.md"]
+        min_chars: 300
+      - check: yaml_valid
+        files: ["dependency-map.yaml", "tasks.yaml"]
+      - check: sections_present
+        file: 02-design.md
+        all_of: ["现状分析", "方案比选", "推荐方案", "影响范围", "实施计划"]
+        message: 必须给出 2-3 个方案并明确推荐，禁止把选择甩给用户
+      - check: yaml_path_nonempty
+        file: tasks.yaml
+        path: requirements
+        message: tasks.yaml 要带上需求清单，覆盖率矩阵才有校验基准
+      - check: yaml_path_nonempty
+        file: tasks.yaml
+        path: tasks
+      - check: yaml_path_empty
+        file: tasks.yaml
+        path: coverage_matrix.uncovered_requirements
+        message: 存在未覆盖需求时方案不得通过，否则需求会在实现阶段静默丢失
+      - check: yaml_items_field
+        file: tasks.yaml
+        path: tasks
+        field: status
+        equals: pending
+        message: 方案阶段所有任务必须是 pending，非 pending 说明架构师越权写了代码
+      - check: yaml_path_nonempty
+        file: dependency-map.yaml
+        path: core
+        message: 核心层为空说明没做代码探索，依赖地图必须有搜索证据支撑
+      - check: sections_present
+        file: impact-report.md
+        all_of: ["影响概览", "影响明细"]
+      - check: regex_present
+        file: impact-report.md
+        pattern: "(高风险|中风险|低风险|high|medium|low)"
+        label: 风险等级
+        ignore_case: true
+        min_count: 1
+        message: 影响报告必须给出风险等级，供 Leader 判断是否需要人工介入
+
+  # ---------- S3 编码实现 ----------
+  - id: S3
+    name: 编码实现
+    role: developer
+    description: 按 tasks.yaml 逐条实现，每条独立验证，全部完成后整体构建
+    max_turns: 40
+    tags: [coding, implementation, build]
+    repo_map_sections: ["热点文件", "构建体系"]
+    artifacts:
+      - 03-changes.md
+    gates:
+      - check: file_exists
+        files: ["03-changes.md"]
+      - check: file_nonempty
+        files: ["03-changes.md"]
+        min_chars: 200
+      - check: yaml_items_field
+        file: tasks.yaml
+        path: tasks
+        field: status
+        equals: completed
+        message: 存在未完成任务就收尾，是最典型的「假装做完了」
+      - check: regex_present
+        file: 03-changes.md
+        pattern: "T\\d+"
+        label: 任务执行记录
+        min_count: 1
+        message: 变更记录要按 task 分节，失败时才能二分定位到具体任务
+      - check: sections_present
+        file: 03-changes.md
+        all_of: ["构建验证", "影响范围确认"]
+        message: 架构师列出的每个影响点，都要有对应的检查结论
+      # 关键：门禁自己把构建重跑一遍。
+      # 常见的做法是在 markdown 里 grep "BUILD SUCCESSFUL"，
+      # 而那行字恰恰是 LLM 自己写的 —— 等于让被考核者填自己的成绩单。
+      - check: command_ok
+        profile_command: build
+        on_missing: warn
+        message: 门禁独立重跑构建，不采信产物里的自述结果
+
+  # ---------- S4 代码评审闭环 ----------
+  - id: S4
+    name: 代码评审闭环
+    role: code-reviewer
+    description: 评审出带编号的问题清单，developer 逐条决策，复核后定级
+    max_turns: 30
+    tags: [review, quality]
+    repo_map_sections: ["热点文件"]
+    artifacts:
+      - 04-review.md
+      - 04-review-response.md
+    gates:
+      - check: file_exists
+        files: ["04-review.md", "04-review-response.md"]
+      - check: regex_present
+        file: 04-review.md
+        pattern: "CR-\\d+"
+        label: 评审问题编号
+        min_count: 1
+        message: 每条评审意见要有 CR 编号，作为 developer 逐条响应的锚点
+      - check: sections_present
+        file: 04-review.md
+        all_of: ["问题清单", "评审结论"]
+      - check: regex_present
+        file: 04-review.md
+        pattern: "(可合并|有条件合并|需打回)"
+        label: 评审定级
+        min_count: 1
+        message: 结论必须是三选一的明确定级，不接受「整体还行」这类表述
+      - check: regex_present
+        file: 04-review-response.md
+        pattern: "(采纳|拒绝|后续迭代)"
+        label: 逐条决策
+        min_count: 1
+        message: 每条 CR 都要有明确处置；拒绝必须附技术理由
+      - check: command_ok
+        profile_command: build
+        on_missing: warn
+        message: 评审修复后重新构建，防止「改评审意见把代码改崩了」
+
+  # ---------- S5 测试验证 ----------
+  - id: S5
+    name: 测试验证
+    role: test-engineer
+    description: 依据验收标准补齐用例并真实执行，产出带证据的测试报告
+    max_turns: 35
+    tags: [testing, verification]
+    repo_map_sections: ["构建体系"]
+    artifacts:
+      - 05-test-report.md
+    gates:
+      - check: file_exists
+        files: ["05-test-report.md"]
+      - check: file_nonempty
+        files: ["05-test-report.md"]
+        min_chars: 200
+      - check: sections_present
+        file: 05-test-report.md
+        all_of: ["用例清单", "执行结果", "验收标准对照"]
+        message: 测试报告要能回答「每条验收标准是否被覆盖」
+      - check: regex_present
+        file: 05-test-report.md
+        pattern: "R-\\d+"
+        label: 验收追溯
+        min_count: 1
+        message: 用例要回链到需求编号，否则无法证明覆盖完整
+      # 先重新构建再跑测试。新增测试文件往往同时改了构建配置，
+      # 直接跑 ctest 会用到上一阶段的陈旧产物，测出来的是旧代码。
+      - check: command_ok
+        profile_command: build
+        on_missing: warn
+        message: 跑测试前先重新构建，确保测的是当前代码而不是陈旧产物
+      # 同样独立复算：测试是否真的跑过，由门禁自己执行说了算
+      - check: command_ok
+        profile_command: test_unit
+        on_missing: warn
+        message: 门禁独立重跑单元测试，不采信报告里的自述结果
+
+  # ---------- S6 发布 ----------
+  # 面试官明确提到「提需到测试到上线」，所以流水线延伸到发布。
+  # 发布动作是机械的（建 MR、触发流水线、留回滚预案），不需要独立角色，
+  # 由 developer 执行、Leader 把关，因此角色总数仍是 7 个。
+  - id: S6
+    name: 发布
+    role: developer
+    description: 提交合并请求、触发发布流水线、登记回滚方案
+    max_turns: 20
+    tags: [release, deploy]
+    artifacts:
+      - 06-release.md
+    gates:
+      - check: file_exists
+        files: ["06-release.md"]
+      - check: sections_present
+        file: 06-release.md
+        all_of: ["变更内容", "发布方式", "验证方式", "回滚方案"]
+        message: 没有回滚方案的发布单不允许通过 —— 这是发布的最后一道人肉保险
+      - check: regex_absent
+        file: 06-release.md
+        pattern: "(回滚方案\\s*[:：]\\s*(无|暂无|不需要)\\s*$)"
+        label: 空回滚方案
+        message: 回滚方案不能写「无」，即使是配置回退也要写清楚操作步骤
+      - check: command_ok
+        profile_command: release_check
+        on_missing: warn
+        message: 发布前执行 profile 定义的发布预检（默认 profile 未配置则降级为提示）
+
+  # ---------- S7 知识沉淀 ----------
+  - id: S7
+    name: 知识沉淀
+    role: knowledge-engineer
+    description: 提炼可复用经验入库、更新知识库与对外文档
+    max_turns: 25
+    tags: [knowledge, documentation]
+    artifacts:
+      - 07-knowledge.md
+    gates:
+      - check: file_exists
+        files: ["07-knowledge.md", "knowledge-base.md"]
+      - check: file_nonempty
+        files: ["07-knowledge.md"]
+        min_chars: 200
+      - check: sections_present
+        file: 07-knowledge.md
+        all_of: ["可复用经验", "本次踩坑", "文档更新", "经验入库记录"]
+        message: 沉淀只记可复用的东西，不记任务流水账
+      - check: sections_present
+        file: knowledge-base.md
+        all_of: ["知识更新日志"]
+        message: 知识库必须留下本次更新痕迹，否则下次运行拿不到增量
+      - check: regex_present
+        file: 07-knowledge.md
+        pattern: "devflow (learn|distill)"
+        label: 经验入库命令
+        min_count: 1
+        message: 经验要真正写进经验库，而不是只在文档里写一段感想

@@ -1,0 +1,105 @@
+# ============================================================
+# default profile — 通用 CMake + CTest + Git 技术栈
+# ============================================================
+# profile 是 devflow 的 L2 层：它装的是「本部门/本项目怎么干活」的知识。
+#
+# L1 引擎（engine/）完全不认识 cmake、ctest、git 这些词；它只知道
+# 「需要构建时去 profile 里拿 commands.build」。换一个部门、换一套
+# 工具链，复制这个文件改几行命令就行，引擎和七个角色定义一行都不用动。
+#
+# 新建自己的 profile：
+#   cp default.yaml myteam.yaml && 改 commands 段
+#   devflow init --profile myteam ...
+# 字段含义见同目录 _schema.yaml。
+# ============================================================
+
+name: default
+description: 通用 C/C++ 工程（CMake 构建 + CTest 单测 + Git 版本控制）
+
+languages: [C, C++]
+
+# ------------------------------------------------------------
+# 命令表：引擎与门禁唯一的「怎么执行」来源
+# ------------------------------------------------------------
+# 支持 {{ var }} 占位符，可用变量见 engine/runner.py build_variables()，
+# 常用的有 {{ run_id }} / {{ project_root }} / {{ artifacts_dir }}。
+# 留空表示本 profile 不提供该能力，门禁会按 on_missing 策略降级。
+commands:
+  # S3/S4 门禁会独立重跑这条命令，用退出码判定构建是否真的通过
+  build: "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build -j 4"
+  # S5 门禁会独立重跑这条命令
+  test_unit: "ctest --test-dir build --output-on-failure"
+  # 以下为可选能力，留空即降级
+  test_integration: ""
+  lint: ""
+  static_check: ""
+  format_check: ""
+  coverage: ""
+  release_check: ""          # 发布预检，例如版本号校验、变更单检查
+  clean: "rm -rf build"
+
+# doctor 子命令会检查这些命令对应的可执行文件是否真实存在
+doctor_commands: [build, test_unit]
+
+# ------------------------------------------------------------
+# 版本控制约束
+# ------------------------------------------------------------
+vcs:
+  kind: git
+  # 允许 Agent 自动执行的命令（无需人工确认）
+  allow:
+    - git status
+    - git diff
+    - git log
+    - git add
+    - git commit
+    - git stash
+    - git branch --show-current
+  # 红线：命中即拒绝执行（由 .codebuddy/hooks/auto-approve.py 拦截）
+  deny:
+    - git push --force
+    - git push -f
+    - git reset --hard
+    - git clean -fdx
+    - git checkout -b
+    - git switch -c
+  # 提交信息模板，{{ run_id }} 会被渲染
+  commit_template: "{{ run_id }}: {{ summary }}"
+
+# ------------------------------------------------------------
+# 需求管理系统对接
+# ------------------------------------------------------------
+# kind: none 表示不对接外部系统，需求由用户在对话里直接给出。
+# 接入内部系统时改成对应 MCP 工具名，并列出需要回写评论的阶段。
+tracker:
+  kind: none
+  mcp_tool: ""
+  comment_on_stages: []
+  on_unavailable: degrade      # degrade=降级继续 | abort=中止
+
+# ------------------------------------------------------------
+# 代码托管与发布
+# ------------------------------------------------------------
+release:
+  mr_platform: ""              # 留空表示手工建 MR
+  mr_create_command: ""
+  pipeline_trigger_command: ""
+  pipeline_status_command: ""
+  require_rollback_plan: true
+  dry_run: true                # 默认只生成发布单，不真正触发发布
+
+# ------------------------------------------------------------
+# 工程约定：会原样注入到各阶段 prompt，用来约束代码风格与设计习惯
+# ------------------------------------------------------------
+conventions:
+  - 新增源文件必须同步加入对应 CMakeLists.txt，否则不参与构建
+  - 对外接口变更必须同时更新头文件注释与调用方
+  - 单元测试与被测源文件同名，放在 tests/ 下，用 CTest 注册
+  - 错误处理走返回码而非异常，除非该模块已有异常约定
+
+# 质量红线：违反即门禁打回，供 code-reviewer 直接引用
+quality_gates:
+  max_files_per_task: 5
+  require_test_for_new_logic: true
+  forbid_commented_out_code: true
+  forbid_todo_without_owner: true

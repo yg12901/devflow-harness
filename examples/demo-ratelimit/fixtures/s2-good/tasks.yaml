@@ -1,0 +1,67 @@
+requirements:
+  - id: R-01
+    desc: 按用户维度独立限流，用户之间互不挤占配额
+  - id: R-02
+    desc: 提供按用户查询剩余令牌数的接口
+
+tasks:
+  - id: T1
+    type: foundation
+    title: 新增 UserRateLimiter，复用 TokenBucket 实现按用户限流
+    depends_on: []
+    files_to_modify:
+      - include/ratelimit/user_rate_limiter.h
+      - src/user_rate_limiter.cpp
+      - CMakeLists.txt
+    acceptance: >-
+      不同 user_key 各自持有独立令牌桶；一个用户耗尽后被拒绝不影响其他用户；
+      新增源文件已登记到 CMakeLists.txt 的 add_library 列表且构建通过
+    completeness_contract:
+      must_notify:
+        - file: include/ratelimit/token_bucket.h
+          reason: 复用 TokenBucket 作为单用户桶，需确认它可拷贝构造且无隐藏状态
+      must_preserve:
+        - TokenBucket 现有的 Allow() / Tick() 语义不得修改
+        - 新增头文件沿用 RATELIMIT_XXX_H_ 形式的 include guard
+    status: pending
+
+  - id: T2
+    type: user_story
+    title: 增加 Available(user_key) 查询接口
+    depends_on:
+      - T1
+    files_to_modify:
+      - include/ratelimit/user_rate_limiter.h
+      - src/user_rate_limiter.cpp
+    acceptance: >-
+      查询从未出现过的用户返回桶容量；查询已消耗令牌的用户返回实际剩余数；
+      查询操作本身不消耗令牌、不改变限流状态
+    completeness_contract:
+      must_notify: []
+      must_preserve:
+        - 查询接口为 const，不得产生副作用
+    status: pending
+
+  - id: TQ
+    type: quality_gate
+    title: 质量收尾：残留扫描与整体构建
+    depends_on:
+      - T1
+      - T2
+    files_to_modify: []
+    acceptance: 无残留 TODO、无注释掉的死代码、整体构建与已有测试全部通过
+    status: pending
+
+coverage_matrix:
+  requirement_to_task:
+    R-01:
+      - T1
+    R-02:
+      - T2
+  task_to_requirement:
+    T1:
+      - R-01
+    T2:
+      - R-02
+  uncovered_requirements: []
+  orphan_tasks: []

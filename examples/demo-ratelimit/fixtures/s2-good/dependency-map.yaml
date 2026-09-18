@@ -1,0 +1,23 @@
+# 代码依赖地图 —— 每一条都必须带 evidence，写明是怎么搜到的。
+# 推测出来的依赖会让 plan-check 的 CHECK-3 / CHECK-4 失去意义。
+
+core:
+  - file: include/ratelimit/user_rate_limiter.h
+    reason: 新增的按用户限流器公开契约
+    evidence: "grep -rn 'UserRateLimiter' include/ src/ -> 0 处命中，确认为全新文件"
+  - file: src/user_rate_limiter.cpp
+    reason: 按用户限流的实现，持有 user_key -> TokenBucket 映射
+    evidence: "ls src/ -> 仅 token_bucket.cpp，确认为全新文件"
+
+associated:
+  - file: CMakeLists.txt
+    reason: 新增源文件必须登记到 add_library，否则不参与构建
+    evidence: "grep -n 'add_library' CMakeLists.txt -> CMakeLists.txt:8 列出源文件清单"
+  - file: include/ratelimit/token_bucket.h
+    reason: UserRateLimiter 复用 TokenBucket 作为单用户的桶，依赖其可拷贝构造
+    evidence: "grep -rn 'class TokenBucket' include/ -> token_bucket.h:14，无自定义拷贝构造与析构"
+
+observation:
+  - file: src/token_bucket.cpp
+    reason: 同一库内的兄弟实现，新增实现的命名与错误处理风格应与之对齐
+    evidence: "ls src/*.cpp -> token_bucket.cpp，是本库唯一现存实现"

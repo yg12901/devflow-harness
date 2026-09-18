@@ -1,0 +1,51 @@
+# 【演示用的反例】架构师第一版任务拆分。
+#
+# 问题：R-02（按用户查询剩余令牌）在需求清单里，但没有任何任务承接它，
+# 而 architect 自己填的 uncovered_requirements 还写着 []（自查通过了）。
+#
+# 这正是「结构性检查不能交给 LLM 自查」的典型场景：模型很容易一边漏掉覆盖、
+# 一边在覆盖率矩阵里声称自己没漏。plan-check 的 CHECK-1 会做集合运算直接戳穿。
+
+requirements:
+  - id: R-01
+    desc: 按用户维度独立限流，用户之间互不挤占配额
+  - id: R-02
+    desc: 提供按用户查询剩余令牌数的接口
+
+tasks:
+  - id: T1
+    type: foundation
+    title: 新增 UserRateLimiter，复用 TokenBucket 实现按用户限流
+    depends_on: []
+    files_to_modify:
+      - include/ratelimit/user_rate_limiter.h
+      - src/user_rate_limiter.cpp
+      - CMakeLists.txt
+    acceptance: >-
+      不同 user_key 各自持有独立令牌桶；一个用户耗尽后被拒绝不影响其他用户
+    completeness_contract:
+      must_notify:
+        - file: include/ratelimit/token_bucket.h
+          reason: 复用 TokenBucket 作为单用户桶，需确认它可拷贝构造
+      must_preserve:
+        - TokenBucket 现有的 Allow() / Tick() 语义不得修改
+    status: pending
+
+  - id: TQ
+    type: quality_gate
+    title: 质量收尾：残留扫描与整体构建
+    depends_on:
+      - T1
+    files_to_modify: []
+    acceptance: 无残留 TODO、无死代码、整体构建与已有测试通过
+    status: pending
+
+coverage_matrix:
+  requirement_to_task:
+    R-01:
+      - T1
+  task_to_requirement:
+    T1:
+      - R-01
+  uncovered_requirements: []
+  orphan_tasks: []

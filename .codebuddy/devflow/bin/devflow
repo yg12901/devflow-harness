@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# devflow CLI 包装脚本。
+#
+# 让各角色 Agent 可以直接写 `.codebuddy/devflow/bin/devflow status`，
+# 而不必关心 Python 解释器和 PYTHONPATH 细节。
+set -euo pipefail
+
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [ -L "$SCRIPT_PATH" ]; do
+  SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+done
+BIN_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+DEVFLOW_DIR="$(dirname "$BIN_DIR")"
+
+PYTHON_BIN="${DEVFLOW_PYTHON:-}"
+if [ -z "$PYTHON_BIN" ]; then
+  for candidate in python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      PYTHON_BIN="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$PYTHON_BIN" ]; then
+  echo '{"error":"未找到 python3，请先安装 Python 3.6+"}' >&2
+  exit 2
+fi
+
+exec "$PYTHON_BIN" -c "import sys; sys.path.insert(0, '$DEVFLOW_DIR'); from engine.cli import main; sys.exit(main())" "$@"

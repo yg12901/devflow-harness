@@ -1,0 +1,58 @@
+# ============================================================
+# profile 字段说明（本文件不参与加载，仅作规范参考）
+# ============================================================
+# 下划线开头的文件会被 `devflow profiles` 忽略。
+#
+# 适配一个新部门/新技术栈的最小改动量：
+#   1. cp default.yaml <yourteam>.yaml
+#   2. 改 commands.build / commands.test_unit 两条
+#   3. devflow doctor --profile <yourteam> 确认命令可用
+#   4. devflow init --profile <yourteam> ...
+# 其余字段都有默认行为，可以先不填。
+# ============================================================
+
+name: string                    # 必填，与文件名一致
+description: string             # 必填，devflow profiles 会展示
+languages: [string]             # 选填，仅用于展示与仓库地图比对
+
+commands:                       # 核心：引擎唯一的「怎么执行」来源
+  build: string                 # S3/S4 门禁独立重跑；留空则门禁降级为 warn
+  test_unit: string             # S5 门禁独立重跑；留空则门禁降级为 warn
+  test_integration: string      # 选填
+  lint: string                  # 选填
+  static_check: string          # 选填
+  format_check: string          # 选填
+  coverage: string              # 选填
+  release_check: string         # 选填，S6 发布预检
+  clean: string                 # 选填
+  # 支持 {{ run_id }} {{ project_root }} {{ artifacts_dir }} {{ title }} 等占位符
+
+doctor_commands: [string]       # devflow doctor 会检查这些命令的可执行文件是否存在
+
+vcs:
+  kind: string                  # git 等
+  allow: [string]               # 允许 Agent 自动执行的命令前缀
+  deny: [string]                # 红线命令，hook 会直接拒绝
+  commit_template: string
+
+tracker:                        # 需求管理系统对接
+  kind: string                  # none | 内部系统标识
+  mcp_tool: string              # 对应的 MCP 工具名
+  comment_on_stages: [string]   # 需要回写评论的阶段 id，如 ["S1", "S6"]
+  on_unavailable: string        # degrade | abort
+
+release:
+  mr_platform: string
+  mr_create_command: string
+  pipeline_trigger_command: string
+  pipeline_status_command: string
+  require_rollback_plan: bool
+  dry_run: bool                 # true = 只生成发布单不真正发布
+
+conventions: [string]           # 原样注入各阶段 prompt 的工程约定
+
+quality_gates:
+  max_files_per_task: int       # 任务粒度上限，plan-check CHECK-7 使用
+  require_test_for_new_logic: bool
+  forbid_commented_out_code: bool
+  forbid_todo_without_owner: bool

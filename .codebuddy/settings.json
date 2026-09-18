@@ -1,0 +1,32 @@
+{
+  "$schema": "https://www.codebuddy.ai/schema/settings.json",
+  "_comment": "devflow 项目级配置。PreToolUse hook 是 CodeBuddy 官方支持的权限拦截点，用它做黑名单自动放行，避免流水线跑到一半卡在人工确认上。危险命令清单见 .codebuddy/hooks/auto-approve.py 与当前 profile 的 vcs.deny。",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CODEBUDDY_PROJECT_DIR/.codebuddy/hooks/auto-approve.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "execute_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CODEBUDDY_PROJECT_DIR/.codebuddy/hooks/auto-approve.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "terminal.autoRun": true,
+  "terminal.allowList": [
+    "*"
+  ]
+}

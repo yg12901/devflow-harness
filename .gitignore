@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# devflow 运行产物
+# 注意：learnings/ 刻意不忽略 —— 经验库是团队共享的资产，应该随代码入库
+.codebuddy/devflow/runs/
+.codebuddy/devflow/repo-map.md
+
+# 构建产物
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+
+# 编辑器与系统
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,100 @@
+# devflow 活跃经验库（自学习闭环的持久化层）
+#
+# priority: P0=每次必读 / P1=匹配阶段时读 / P2=匹配标签时读
+# status:   active=生效 / needs_rewrite=注入后仍失败待改写 / retired=已淘汰
+# signature: 把事件、经验、后续门禁结果三者对齐的归因键
+#
+# 本文件由 `devflow distill` 自动维护，也可手工编辑；
+# 手工新增条目请把 origin 设为 manual，蒸馏时不会覆盖。
+#
+# 下面四条是预置的 P0 铁律，来自多轮真实流水线运行的复盘结论，
+# origin=manual 表示它们不会被自动蒸馏逻辑降级或覆盖。
+
+version: 1
+updated: "2026-09-18"
+
+entries:
+
+  - id: L-001
+    priority: P0
+    status: active
+    stage: "*"
+    signature: "role:leader_overreach"
+    pattern: "Leader 觉得任务简单就自己动手写产物，绕过了对应角色"
+    fix: "Leader 只能调度与裁决。任何阶段产物都必须由对应角色的 subagent 产出，即使只改一行也不例外 —— 一旦越权，状态机和门禁就同时失效了"
+    tags: [leader, orchestration, role_boundary]
+    origin: manual
+    created: "2026-09-18"
+    updated: "2026-09-18"
+    stats:
+      hits: 0
+      runs: 0
+      injected: 0
+      fail_after_inject: 0
+      effective_streak: 0
+      proven: true
+      run_ids: []
+      stages: []
+
+  - id: L-002
+    priority: P0
+    status: active
+    stage: "*"
+    signature: "resilience:silent_subagent"
+    pattern: "subagent 返回空、被截断或没有 status 字段，流程原地卡住等人来说「继续」"
+    fix: "不要等。先跑 devflow inspect --stage <当前阶段> 看产物的真实进度：产物齐备就直接跑门禁推进，产物不全就带着已完成部分重调，产物为空才提高 max_turns 重来"
+    tags: [resilience, interruption, recovery]
+    origin: manual
+    created: "2026-09-18"
+    updated: "2026-09-18"
+    stats:
+      hits: 0
+      runs: 0
+      injected: 0
+      fail_after_inject: 0
+      effective_streak: 0
+      proven: true
+      run_ids: []
+      stages: []
+
+  - id: L-003
+    priority: P0
+    status: active
+    stage: "*"
+    signature: "quality:fabricated_evidence"
+    pattern: "在产物里写「构建通过」「测试全过」，但并没有真正执行过命令"
+    fix: "门禁会用 command_ok 独立重跑构建和测试，自述结果不作数。没跑就如实写没跑，跑失败就如实写失败 —— 伪造证据会在门禁处暴露，反而多耗一轮"
+    tags: [quality, evidence, honesty]
+    origin: manual
+    created: "2026-09-18"
+    updated: "2026-09-18"
+    stats:
+      hits: 0
+      runs: 0
+      injected: 0
+      fail_after_inject: 0
+      effective_streak: 0
+      proven: true
+      run_ids: []
+      stages: []
+
+  - id: L-004
+    priority: P1
+    status: active
+    stage: S2
+    signature: "design:unverified_dependency"
+    pattern: "依赖地图靠推测填写，没有真实搜索过代码"
+    fix: "dependency-map.yaml 每一条都要带 evidence 字段写明搜索命令与命中位置。推测出来的依赖会让 plan-check 的 CHECK-3/CHECK-4 失去意义，也会让 developer 漏改调用方"
+    tags: [design, dependency, evidence, S2]
+    origin: manual
+    created: "2026-09-18"
+    updated: "2026-09-18"
+    stats:
+      hits: 0
+      runs: 0
+      injected: 0
+      fail_after_inject: 0
+      effective_streak: 0
+      proven: false
+      run_ids: []
+      stages: []
