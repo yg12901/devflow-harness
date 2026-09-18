@@ -214,7 +214,7 @@ stages:
     name: 代码评审闭环
     role: code-reviewer
     description: 评审出带编号的问题清单，developer 逐条决策，复核后定级
-    max_turns: 30
+    max_turns: 40
     tags: [review, quality]
     repo_map_sections: ["热点文件"]
     artifacts:
@@ -294,7 +294,7 @@ stages:
     name: 发布
     role: developer
     description: 提交合并请求、触发发布流水线、登记回滚方案
-    max_turns: 20
+    max_turns: 30
     tags: [release, deploy]
     artifacts:
       - 06-release.md
@@ -320,7 +320,7 @@ stages:
     name: 知识沉淀
     role: knowledge-engineer
     description: 提炼可复用经验入库、更新知识库与对外文档
-    max_turns: 25
+    max_turns: 35
     tags: [knowledge, documentation]
     artifacts:
       - 07-knowledge.md

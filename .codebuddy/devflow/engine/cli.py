@@ -136,7 +136,16 @@ def cmd_inspect(args):
     stage = args.stage or state.data.get("current_stage")
     if not stage:
         return core.emit({"error": "没有进行中的阶段，请用 --stage 指定"}, 2)
-    return core.emit(runner.inspect_stage_artifacts(state, stage, workflow))
+    payload = runner.inspect_stage_artifacts(state, stage, workflow)
+    learning.record_event(
+        state.run_id, stage, "silent_recovery",
+        "inspect %s → %s（present=%s missing=%s）" % (
+            stage, payload.get("verdict"),
+            ",".join(payload.get("present") or []) or "-",
+            ",".join(payload.get("missing") or []) or "-"),
+        tags=["inspect", stage],
+        signature="silent_recovery:%s:%s" % (stage, payload.get("verdict")))
+    return core.emit(payload)
 
 
 def cmd_rollback(args):

@@ -68,7 +68,8 @@ $DF init --title "<从需求里提炼的标题>" --type <类型> --requirement "
   $DF next                              # 拿 stage / role / max_turns / prompt
   task(subagent_name=<role>,
        prompt=<上一步返回的 prompt 字段，原样透传>,
-       description="<stage> <name>")
+       description="<stage> <name>",
+       max_turns=<上一步返回的 max_turns>)
   解析返回的 JSON
   $DF gate --stage <stage>
   退出码 0 → $DF stage-update --stage <stage> --status passed --summary "<摘要>" --score <score>

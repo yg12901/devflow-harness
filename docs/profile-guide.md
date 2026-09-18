@@ -6,6 +6,9 @@
 `profile.commands.build` 里取一条命令来执行」。所以换技术栈 = 换一个 YAML 文件，
 引擎和七个角色定义一行都不用改。
 
+仓库里已经带了两份：`default.yaml`（CMake + CTest）、`web.yaml`（静态页 + `node --check` / `node --test`）。
+纯前端项目用 `--profile web`，不要拿 cmake 硬跑。
+
 ---
 
 ## 最小改动：两行

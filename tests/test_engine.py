@@ -88,6 +88,12 @@ class TestConfig(unittest.TestCase):
             self.assertTrue(text.startswith("---"), "%s 缺少 frontmatter" % name)
             self.assertIn("name: %s" % name, text)
 
+    def test_web_profile_loads(self):
+        profile = core.load_profile("web")
+        self.assertIn("node --test", profile["commands"]["test_unit"])
+        self.assertTrue(profile["commands"]["build"].startswith("/usr/bin/find"))
+        self.assertTrue(profile["commands"]["release_check"])
+
     def test_default_profile_loads(self):
         profile = core.load_profile("default")
         self.assertTrue(profile["commands"]["build"])
@@ -435,6 +441,22 @@ class TestLearning(TempDevflowCase):
         self.assertEqual(back[0]["stage"], "*")
         self.assertEqual(back[0]["pattern"], "含: 冒号 与 #井号")
         self.assertEqual(back[0]["tags"], ["a-b", "*weird"])
+
+    def test_yaml_roundtrip_colon_in_tags(self):
+        """tags 含 node:test 必须加引号，否则 YAML 把冒号当成嵌套映射，整份经验库读不出来。"""
+        learning.save_entries([{
+            "id": "L-009", "priority": "P2", "status": "active", "stage": "S5",
+            "signature": "s", "pattern": "p", "fix": "f",
+            "tags": ["S5", "node:test", "DOM桩"], "origin": "manual",
+            "created": "2026-01-01", "updated": "2026-01-01",
+            "stats": {"hits": 1, "runs": 1, "injected": 0, "fail_after_inject": 0,
+                      "effective_streak": 0, "proven": False,
+                      "run_ids": ["REQ-1"], "stages": ["S5"]},
+        }])
+        raw = core.read_text(core.ACTIVE_LEARNINGS_FILE)
+        self.assertIn('"node:test"', raw)
+        back = learning.load_entries()
+        self.assertEqual(back[0]["tags"], ["S5", "node:test", "DOM桩"])
 
     def test_gate_failure_auto_records_event(self):
         learning.record_gate_failures("R1", "S2", self.gate_fail("S2", "CHECK-1"))

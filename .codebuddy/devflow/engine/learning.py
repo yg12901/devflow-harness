@@ -162,7 +162,7 @@ def save_entries(entries):
         lines.append("    signature: %s" % _yaml_scalar(entry.get("signature", "")))
         lines.append("    pattern: %s" % _yaml_scalar(entry.get("pattern", "")))
         lines.append("    fix: %s" % _yaml_scalar(entry.get("fix", "")))
-        lines.append("    tags: [%s]" % ", ".join(_yaml_scalar(t) for t in entry.get("tags", [])))
+        lines.append("    tags: %s" % _yaml_flow_list(entry.get("tags", [])))
         lines.append("    origin: %s" % entry.get("origin", "auto"))
         lines.append("    created: \"%s\"" % entry.get("created", core.today()))
         lines.append("    updated: \"%s\"" % entry.get("updated", core.today()))
@@ -173,21 +173,33 @@ def save_entries(entries):
         lines.append("      fail_after_inject: %d" % stats.get("fail_after_inject", 0))
         lines.append("      effective_streak: %d" % stats.get("effective_streak", 0))
         lines.append("      proven: %s" % ("true" if stats.get("proven") else "false"))
-        lines.append("      run_ids: [%s]" % ", ".join(_yaml_scalar(r) for r in stats.get("run_ids", [])[-10:]))
-        lines.append("      stages: [%s]" % ", ".join(_yaml_scalar(s) for s in stats.get("stages", [])))
+        lines.append("      run_ids: %s" % _yaml_flow_list(stats.get("run_ids", [])[-10:]))
+        lines.append("      stages: %s" % _yaml_flow_list(stats.get("stages", [])))
     core.write_text(core.ACTIVE_LEARNINGS_FILE, "\n".join(lines) + "\n")
 
 
 # 只有以字母数字或下划线开头、且全程不含 YAML 特殊字符的串才敢裸写。
-# 尤其注意 "*" 和 "&"：裸写会被解析成别名/锚点，而 stage 字段恰好常取 "*"。
+# 尤其注意 "*" / "&"（别名）和 ":"（flow 里会被解析成嵌套映射，
+# 例如 tags 里的 node:test 会把整份经验库读崩）。
 _SAFE_SCALAR = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_\-./]*$")
+_FORCE_QUOTE_CHARS = ":#&*!|>%@`,[]{}"
+
+
+def _yaml_quoted(value):
+    text = "" if value is None else str(value)
+    return '"%s"' % text.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _yaml_scalar(value):
     text = "" if value is None else str(value)
-    if text and _SAFE_SCALAR.match(text):
+    if text and _SAFE_SCALAR.match(text) and not any(ch in text for ch in _FORCE_QUOTE_CHARS):
         return text
-    return '"%s"' % text.replace("\\", "\\\\").replace('"', '\\"')
+    return _yaml_quoted(text)
+
+
+def _yaml_flow_list(items):
+    """列表一律加引号。tags 常含 node:test、中文，裸写会让整份 YAML 无法解析。"""
+    return "[%s]" % ", ".join(_yaml_quoted(item) for item in (items or []))
 
 
 def _next_id(entries):

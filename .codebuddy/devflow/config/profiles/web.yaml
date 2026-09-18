@@ -1,0 +1,74 @@
+# ============================================================
+# web profile — 静态网页项目（HTML + CSS + 原生 JS）
+# ============================================================
+# 适配对象：不引入构建工具的纯前端小项目，浏览器打开 index.html 即可运行。
+# 引擎不认识 node / find，只执行这里的命令。换回 C++ 工程改 defaults.profile 即可。
+# ============================================================
+
+name: web
+description: 静态网页项目（HTML + CSS + 原生 JavaScript，Node 负责语法检查与单元测试）
+
+languages: [HTML, CSS, JavaScript]
+
+commands:
+  # 必须用 /usr/bin/find：部分环境的 find 是包装器，不支持 -not 复合谓词，
+  # 门禁会把「命令被拦截」误判成构建失败。
+  build: "/usr/bin/find {{ project_root }} -name '*.js' -not -path '*/node_modules/*' -not -path '*/.codebuddy/*' -print0 | xargs -0 -r -n1 node --check"
+  test_unit: "node --test {{ project_root }}/tests/"
+  test_integration: ""
+  lint: ""
+  static_check: ""
+  format_check: ""
+  coverage: ""
+  # 静态站点没有发布流水线，发布预检 = 再跑一遍测试
+  release_check: "node --test {{ project_root }}/tests/"
+  clean: ""
+
+doctor_commands: [build, test_unit]
+
+vcs:
+  kind: git
+  allow:
+    - git status
+    - git diff
+    - git log
+    - git add
+    - git commit
+    - git stash
+    - git branch --show-current
+  deny:
+    - git push --force
+    - git push -f
+    - git reset --hard
+    - git clean -fdx
+    - git checkout -b
+    - git switch -c
+  commit_template: "{{ run_id }}: {{ summary }}"
+
+tracker:
+  kind: none
+  mcp_tool: ""
+  comment_on_stages: []
+  on_unavailable: degrade
+
+release:
+  mr_platform: ""
+  mr_create_command: ""
+  pipeline_trigger_command: ""
+  pipeline_status_command: ""
+  require_rollback_plan: true
+  dry_run: true
+
+conventions:
+  - 纯静态站点，不引入打包工具与第三方依赖，file:// 直接打开 index.html 即可运行
+  - 游戏/业务逻辑与 DOM 渲染分离，逻辑放独立 .js 文件，便于 Node 直接测试
+  - 不使用 ES module 的 import/export（file:// 下会被 CORS 拦截），用普通 script 标签加载
+  - 逻辑文件末尾用 `if (typeof module !== 'undefined') { module.exports = {...} }` 导出，
+    这样浏览器直接加载和 Node require 都能工作
+  - 单元测试用 Node 内置 node:test，放在 tests/ 下，文件名 *.test.js
+
+quality_gates:
+  max_files_per_task: 5
+  require_test_for_new_logic: true
+  forbid_commented_out_code: true
+  forbid_todo_without_owner: true

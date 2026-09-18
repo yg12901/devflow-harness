@@ -60,13 +60,18 @@ $DF reflect                                 # 全流程结束后复盘 + 蒸馏�
 3. $DF init ...          —— 拿到 run_id 和阶段列表，告知用户
 4. 循环直到所有阶段完成：
      a. $DF next                        —— 拿到 stage / role / max_turns / prompt
-     b. task(subagent_name=role, prompt=<上一步的 prompt 原样透传>, description="<stage> <name>")
+     b. task(subagent_name=role,
+             prompt=<next 返回的 prompt 原样透传>,
+             description="<stage> <name>",
+             max_turns=<next 返回的 max_turns>)
      c. 解析返回的 JSON（status / summary / artifacts / issues）
      d. $DF gate --stage <stage>        —— 门禁判定
      e. 通过 → $DF stage-update --status passed --summary ... → 回到 a
         打回 → 见下面「异常处理」
 5. 全部完成 → $DF reflect → 向用户汇报全流程结果
 ```
+
+`max_turns` 必须从 `$DF next` 的 JSON 里取并传给 `task()`，不要省略，也不要用一个默认值套所有阶段。S2/S3 需要 40，漏传时平台会用更小的默认值，subagent 会在写完产物前被截断。
 
 **关键**：第 b 步的 prompt 直接用 `$DF next` 输出的 `prompt` 字段原样传递。它已经装配好了上游摘要、匹配到的历史经验、仓库地图提示和本 profile 的真实命令，你不需要也不应该改写它。
 
@@ -93,27 +98,32 @@ S2 的门禁里内置了 9 项任务拆分结构校验（需求覆盖、孤立�
 S4 是唯一需要在一个阶段内来回调度两个角色的：
 
 ```
-1. task(code-reviewer, "首轮评审")        → 产出 04-review.md，每条问题带 CR-01 编号
-2. task(developer,     "评审响应")        → 对每条 CR 决策：采纳并修 / 拒绝+技术理由 / 后续迭代
-                                            产出 04-review-response.md
-3. task(code-reviewer, "复核")            → 确认修复到位，给出定级
+1. task(code-reviewer, 首轮评审, max_turns=S4)     → 产出 04-review.md，每条问题带 CR-01 编号
+2. task(developer,     评审响应, max_turns=S4)     → 对每条 CR 决策：采纳并修 / 拒绝+技术理由 / 后续迭代
+                                                     产出 04-review-response.md
+3. task(code-reviewer, 复核,     max_turns=S4)     → 确认修复到位，给出定级
 4. $DF gate --stage S4
 ```
+
+三轮是三次（或更多次）**独立的** `task()`，每次都有自己的 turn 预算。禁止把「评审 + 响应 + 复核」塞进同一次调用。
 
 规则：
 - **最多 3 轮**。第 3 轮仍未收敛就强制定级为「有条件合并」，列出剩余分歧交用户裁决，**禁止发起第 4 轮**。
 - **不准跳过 developer 决策环节**直接从首轮评审跳到定级。
 - 必修项（🔴）不允许标记为"后续迭代"，要么改要么给出充分技术理由拒绝。
+- **评审发现验收条件本身不成立、实现没有错**：停下来问用户怎么改验收，**不要擅自改 S1/S2 产物，也不要改实现去迁就错误验收。** 用户确认后再让 developer 修订 `tasks.yaml` 的 acceptance，并在条目里留下裁定说明。
 
 ---
 
 ## 异常处理
 
 **门禁打回**（`gate` 退出码 1）：
-读 stderr 里的 FAIL 明细，把具体失败项和证据附在 prompt 里重新 `task()` 调用同一角色。第 1 次原样重试，第 2 次把 `max_turns` 调高，第 3 次仍失败则 `stage-update --status failed` 并向用户报告。
+读 stderr 里的 FAIL 明细，把具体失败项和证据附在 prompt 里重新 `task()` 调用同一角色。
+第 1 次原样重试（max_turns 不变），第 2 次 `max_turns + 10`，第 3 次仍失败则 `stage-update --status failed` 并向用户报告。
 
-**subagent 没有正常返回**（返回空 / 被截断 / 没有 status 字段）：
-这是最常见的中断形态。**绝对不要原地等用户说「继续」**，立刻执行：
+**subagent 没有正常返回**（返回空 / 被截断 / 没有 status 字段 / 提示空闲超时）：
+这是最常见的中断形态，多半是 **turn 用尽、空闲超时（长时间不调工具被平台回收）或沙箱回收**。
+**绝对不要原地等用户说「继续」**，立刻执行：
 
 ```bash
 $DF inspect --stage <当前阶段>
@@ -122,9 +132,12 @@ $DF inspect --stage <当前阶段>
 按 `verdict` 处置：
 - `complete` —— 产物齐备，直接跑门禁推进，**不要重跑 subagent**（重跑会覆盖掉已完成的工作）
 - `partial` —— 带着已完成部分重新调用，让它只补缺失的
-- `empty` —— 提高 max_turns 重新调用
+- `empty` —— `max_turns + 10` 后重新调用
 
 处置完在对话里说明一句「检测到 subagent 未正常返回，已按产物实际进度接管」，然后继续推进。
+
+**父会话被截断**（主窗口自己停了，不再调度下一个角色）：
+不要从头 `/flow`。让用户发 `/flow-resume`，从断点阶段继续。已完成阶段的产物和状态都在，重开会冲掉进度。
 
 **构建或测试连续失败**：同一阶段重试 3 次仍失败，`stage-update --status blocked`，向用户报告具体错误，停下来等人工决策。不要无限重试。
 
