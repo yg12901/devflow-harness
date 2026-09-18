@@ -76,6 +76,18 @@ class TestConfig(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(agents_dir, role + ".md")),
                             "缺少角色定义：%s" % role)
 
+    def test_pipeline_skills_present(self):
+        skills_dir = os.path.join(REPO_ROOT, ".codebuddy", "skills")
+        for name in ("requirement-analysis", "code-explorer", "impact-analysis",
+                     "task-decomposition", "task-execution", "code-review",
+                     "test-design", "release-notes", "reflect"):
+            path = os.path.join(skills_dir, name, "SKILL.md")
+            self.assertTrue(os.path.isfile(path), "缺少 skill：%s" % name)
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+            self.assertTrue(text.startswith("---"), "%s 缺少 frontmatter" % name)
+            self.assertIn("name: %s" % name, text)
+
     def test_default_profile_loads(self):
         profile = core.load_profile("default")
         self.assertTrue(profile["commands"]["build"])

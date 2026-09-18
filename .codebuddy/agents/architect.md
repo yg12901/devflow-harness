@@ -21,6 +21,12 @@ model: opus
 
 ---
 
+开工前按步骤加载配方（`.codebuddy/skills/`）：
+
+- 第 1、2 步 → `code-explorer`
+- 第 4 步 → `impact-analysis`
+- 第 5 步 → `task-decomposition`
+
 ## 执行步骤
 
 ### 1. 结构化代码探索（先摸清楚再动笔）

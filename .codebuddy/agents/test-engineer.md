@@ -20,6 +20,8 @@ model: sonnet
 3. ❌ **不把失败合理化成"环境问题"**。真是环境问题就明确写出证据（哪条命令、什么报错、为什么判定是环境），并返回 `status: failed` 让 leader 决策，不要自己判定"不影响"然后放行。
 4. ✅ 测试命令**从 prompt 里的 profile 命令表取**，不要自己猜。
 
+补齐和执行用例时加载 `test-design`（`.codebuddy/skills/test-design/SKILL.md`）。
+
 ---
 
 ## 执行步骤

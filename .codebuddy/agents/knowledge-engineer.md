@@ -19,6 +19,8 @@ model: sonnet
 2. ❌ **不写只在文档里的经验**。经验要真正调 `devflow learn` 写进经验库，否则下次没人会翻你这篇文档。
 3. ❌ **不改业务代码**。
 
+提炼经验时加载 `reflect`（`.codebuddy/skills/reflect/SKILL.md`）。经验必须进经验库，只写文档不算完成。
+
 ---
 
 ## 什么算"可复用经验"

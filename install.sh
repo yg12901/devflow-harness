@@ -7,6 +7,7 @@
 #
 # 安装内容全部落在目标仓库的 .codebuddy/ 下：
 #   agents/     7 个角色定义（CodeBuddy 会自动发现）
+#   skills/     按需加载的配方（需求 / 探索 / 影响 / 拆分 / 实现 / 评审 / 测试 / 发布 / 复盘）
 #   commands/   /flow 系列斜杠命令
 #   hooks/      命令自动放行钩子
 #   devflow/    引擎、配置、prompt 模板、经验库
@@ -59,7 +60,7 @@ mkdir -p "$DEST"
 
 # ---------- 角色、命令、钩子、引擎 ----------
 # 这些是 harness 本体，--force 时可整体覆盖
-for dir in agents commands hooks; do
+for dir in agents skills commands hooks; do
   if [ -d "$DEST/$dir" ] && [ "$FORCE" -eq 0 ]; then
     cp -rn "$SRC/$dir/." "$DEST/$dir/" 2>/dev/null || true
     warn "$dir/ 已存在，仅补充缺失文件（加 --force 可覆盖）"

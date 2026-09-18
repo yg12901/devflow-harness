@@ -45,6 +45,22 @@ devflow 能跨部门复用的前提是把「流程」「技术栈」「引擎」
 是确定性的集合运算和图遍历，交给 `gates.py::run_plan_check()` 执行。
 文档更新和经验沉淀都在流程末端，由 `knowledge-engineer` 一次写完，保证两边对得上。
 
+角色定义「谁在哪个阶段、产出什么、不能越权做什么」。
+skill 定义「这类事怎么做」，同一份配方可以被多个角色按需加载
+（S1 和 S2 都要做代码探索）。确定性校验仍然走脚本，不做成 skill。
+
+| skill | 谁加载 | 解决什么 |
+|---|---|---|
+| `requirement-analysis` | requirement-analyst | 拆成可验证的 R 编号，验收条件能直接写成测试 |
+| `code-explorer` | requirement-analyst、architect | 找入口、追调用链，结论必须带搜索证据 |
+| `impact-analysis` | architect | 五个维度找隐性影响，落到 must_notify |
+| `task-decomposition` | architect | 写出能过 CHECK-1..9 的任务清单 |
+| `task-execution` | developer（S3） | 逐条实现、状态落盘、构建证据不作假 |
+| `code-review` | code-reviewer | 对照方案/任务/影响报告审 diff |
+| `test-design` | test-engineer | 按验收补真用例，未覆盖如实写 |
+| `release-notes` | developer（S6） | 写得出事时别人能照着做的回滚 |
+| `reflect` | knowledge-engineer | 把模式写进经验库，而不是只写总结 |
+
 ### 自查悖论
 
 演示里有个刻意设计的场景：架构师产出的 `tasks.yaml` 漏了需求 R-02 没拆任务，

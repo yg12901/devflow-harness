@@ -241,6 +241,20 @@ def cmd_doctor(args):
         "%d 个角色就绪（leader + %d 个执行角色）" % (len(roles), len(roles) - 1)
         if not missing_agents else "缺失：%s" % missing_agents)
 
+    skills_dir = os.path.join(core.CODEBUDDY_DIR, "skills")
+    expected_skills = [
+        "requirement-analysis", "code-explorer", "impact-analysis",
+        "task-decomposition", "task-execution", "code-review",
+        "test-design", "release-notes", "reflect",
+    ]
+    missing_skills = [
+        name for name in expected_skills
+        if not os.path.isfile(os.path.join(skills_dir, name, "SKILL.md"))
+    ]
+    add("技能配方齐备", not missing_skills,
+        "%d 个 skill 就绪" % len(expected_skills)
+        if not missing_skills else "缺失：%s" % missing_skills)
+
     unknown = []
     for stage in core.stage_defs(workflow):
         for spec in stage.get("gates") or []:

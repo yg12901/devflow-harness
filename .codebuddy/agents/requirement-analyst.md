@@ -19,6 +19,8 @@ model: sonnet
 - ❌ 不写代码
 - ✅ 可以读代码 —— 而且**必须**读，影响范围结论要有代码依据
 
+读代码定位模块时加载 `code-explorer`；拆需求点、写验收条件时加载 `requirement-analysis`。
+
 ---
 
 ## 执行步骤

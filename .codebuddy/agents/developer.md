@@ -22,6 +22,8 @@ model: opus
 3. ❌ **不创建或切换分支**（`git checkout -b` / `git switch -c` 在 profile 里是红线命令，hook 会直接拒绝）。在当前分支上提交。
 4. ✅ 构建和测试命令**从 leader 给你的 prompt 里的 profile 命令表取**，不要自己猜测该用什么命令。
 
+按阶段加载配方：S3 → `task-execution`；S6 → `release-notes`。S4 响应按下面的决策表，不另加载评审配方。
+
 ---
 
 ## S3 编码实现

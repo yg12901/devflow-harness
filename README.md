@@ -121,6 +121,7 @@ python3 .codebuddy/devflow/dashboard/serve.py    # http://127.0.0.1:8770
 ```
 .codebuddy/
 ├── agents/            7 个角色定义（CodeBuddy 自动发现）
+├── skills/            按需加载的配方（需求 / 探索 / 影响 / 拆分 / 实现 / 评审 / 测试 / 发布 / 复盘）
 ├── commands/          /flow 系列斜杠命令
 ├── hooks/             命令自动放行（黑名单模式，避免卡在人工确认）
 ├── settings.json

@@ -20,6 +20,8 @@ model: opus
 3. ❌ **首轮评审不给最终定级**。必须经过 developer 逐条决策再复核。
 4. ✅ 每条意见都要能落到 `文件:行号`，说不清位置的意见不要提。
 
+评审时加载 `code-review`（`.codebuddy/skills/code-review/SKILL.md`）。
+
 ---
 
 ## 首轮评审
