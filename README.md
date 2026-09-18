@@ -82,10 +82,7 @@ devflow doctor --profile myteam
 | S7 知识沉淀 | `knowledge-engineer` | 经验入库 + 文档更新 | 经验真正写进库，不是只写在文档里 |
 
 `leader` 是第七个角色，负责编排：调度、跑门禁、裁决推进，自己不产出任何阶段产物。
-
-**为什么是 7 个而不是 9 个**：原型里还有 `plan-reviewer`（审查任务拆分）和 `doc-writer`（写文档）。
-前者做的 9 项检查全是确定性的集合/图运算 —— 改成脚本后又快又不会因模型波动漏判，
-所以它变成了 `gates.py` 里的 `run_plan_check()`；后者的职责并入 `knowledge-engineer`。
+S2 任务拆分的覆盖率、孤立任务、依赖成环等由脚本校验；文档与经验由 `knowledge-engineer` 在流程末端一次写完。
 
 ---
 

@@ -271,7 +271,7 @@ class TestGates(TempDevflowCase):
 
 
 # ============================================================
-# 计划结构校验（原 plan-reviewer 的 9 项）
+# 计划结构校验（CHECK-1 .. CHECK-9）
 # ============================================================
 
 class TestPlanCheck(TempDevflowCase):

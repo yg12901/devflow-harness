@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """运行态单一真相源。
 
-早期原型的教训：状态分散在 records.json / state.json / 产物目录三处，
-会话中断后三者互相矛盾，恢复时需要人工判断。这里收敛为一个
-run-state.json，所有读写都走 RunState，其余模块不得直接改文件。
+一次运行只写一份 run-state.json。所有读写都走 RunState，其余模块不得直接改文件。
+会话中断后只认这一处，避免进度记录和产物目录互相矛盾。
 
 文件锁用 fcntl（POSIX）；Windows 下降级为无锁写入，不阻塞主流程。
 """

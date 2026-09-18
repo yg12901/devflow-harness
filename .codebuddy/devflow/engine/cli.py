@@ -304,7 +304,7 @@ def build_parser():
     p.add_argument("--run-id", default="")
     p.add_argument("--stage", required=True)
 
-    p = add("plan-check", "任务拆分结构校验（9 项，原 plan-reviewer 角色）", cmd_plan_check)
+    p = add("plan-check", "任务拆分结构校验（覆盖率、依赖成环等）", cmd_plan_check)
     p.add_argument("--run-id", default="")
     p.add_argument("--max-files", type=int, default=5)
 
